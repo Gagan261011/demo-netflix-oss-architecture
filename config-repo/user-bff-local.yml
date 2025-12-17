@@ -1,0 +1,18 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-bff
+
+middleware:
+  base-url: https://${MIDDLEWARE_HOST:localhost}:8443
+
+mtls:
+  client:
+    key-store: ${CERTS_DIR:./scripts/certs/out}/user-bff-client-keystore.p12
+    key-store-password: ${MTLS_KEYSTORE_PASSWORD:changeit}
+    trust-store: ${CERTS_DIR:./scripts/certs/out}/user-bff-client-truststore.p12
+    trust-store-password: ${MTLS_TRUSTSTORE_PASSWORD:changeit}
+    insecure-skip-hostname-verification: true
+

@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update -y
+apt-get install -y --no-install-recommends git sudo
+
+useradd -m -s /bin/bash apps >/dev/null 2>&1 || true
+
+if [[ ! -d /home/apps/repo/.git ]]; then
+  rm -rf /home/apps/repo
+  sudo -u apps bash -lc "git clone --branch '${git_branch}' --single-branch '${repo_url}' /home/apps/repo"
+else
+  sudo -u apps bash -lc "cd /home/apps/repo && git fetch origin '${git_branch}' && git checkout '${git_branch}' && git reset --hard 'origin/${git_branch}'"
+fi
+
+SERVICE_NAME='${service_name}' \
+SERVICE_MODULE='${service_module}' \
+SERVICE_PORT='${service_port}' \
+SPRING_PROFILE='aws' \
+REPO_DIR='/home/apps/repo' \
+CONFIG_SERVER_URL='${config_server_url}' \
+EUREKA_URL='${eureka_url}' \
+CERTS_S3_BUCKET='${certs_s3_bucket}' \
+EUREKA_DISCOVERY_NAME='${eureka_discovery_name}' \
+MIDDLEWARE_HOST='${middleware_host}' \
+BACKEND_HOST='${backend_host}' \
+WAIT_FOR_URLS='${wait_for_urls}' \
+WAIT_FOR_MTLS_URLS='${wait_for_mtls_urls}' \
+bash /home/apps/repo/scripts/provision/provision_service.sh

@@ -1,0 +1,27 @@
+type Query {
+  process(type: String!, message: String!, amount: Float!): ProcessedResponse!
+}
+
+type ProcessedResponse {
+  original: OriginalPayload!
+  computedOutput: String!
+  timestamp: String!
+  instance: InstanceInfo!
+  receivedClientSubject: String
+  receivedClientSerial: String
+  clientCertificateSubject: String!
+  clientCertificateSerial: String!
+}
+
+type OriginalPayload {
+  type: String!
+  message: String!
+  amount: Float!
+}
+
+type InstanceInfo {
+  service: String!
+  hostname: String!
+  address: String!
+}
+

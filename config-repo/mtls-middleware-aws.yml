@@ -1,0 +1,19 @@
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    client-auth: need
+    key-store-type: PKCS12
+    key-store: ${CERTS_DIR:/opt/mtls-middleware/certs}/middleware-server-keystore.p12
+    key-store-password: ${MTLS_KEYSTORE_PASSWORD:changeit}
+    trust-store-type: PKCS12
+    trust-store: ${CERTS_DIR:/opt/mtls-middleware/certs}/middleware-server-truststore.p12
+    trust-store-password: ${MTLS_TRUSTSTORE_PASSWORD:changeit}
+
+spring:
+  application:
+    name: mtls-middleware
+
+backend:
+  base-url: http://${BACKEND_HOST:localhost}:8082
+

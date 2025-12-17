@@ -1,0 +1,12 @@
+package com.demo.netflixoss.corebackend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class CoreBackendApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(CoreBackendApplication.class, args);
+    }
+}
+
