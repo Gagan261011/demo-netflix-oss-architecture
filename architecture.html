@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="color-scheme" content="dark light"/>
+  <title>demo-netflix-oss-architecture — Architecture</title>
+  <style>
+    :root{
+      --bg0:#0b1020;--bg1:#0e1630;--card:rgba(255,255,255,.06);--b:rgba(255,255,255,.12);
+      --t:rgba(255,255,255,.92);--m:rgba(255,255,255,.68);--m2:rgba(255,255,255,.56);
+      --blue:#60a5fa;--teal:#2dd4bf;--violet:#a78bfa;--ok:#4ade80;--warn:#fbbf24;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      --sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,"Noto Sans","Liberation Sans",sans-serif;
+    }
+    @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+    html,body{height:100%}
+    body{
+      margin:0;font-family:var(--sans);color:var(--t);
+      background:
+        radial-gradient(900px 520px at 18% 18%, rgba(96,165,250,.14), transparent 60%),
+        radial-gradient(900px 560px at 82% 24%, rgba(167,139,250,.14), transparent 62%),
+        radial-gradient(900px 600px at 55% 86%, rgba(45,212,191,.10), transparent 60%),
+        linear-gradient(180deg,var(--bg0),var(--bg1));
+      overflow-x:hidden;
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:26px 18px 56px}
+    header{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start}
+    h1{margin:0;font-size:22px;letter-spacing:.2px}
+    .sub{margin:6px 0 0;max-width:900px;color:var(--m);font-size:13.5px;line-height:1.4}
+    .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+    .btn{
+      appearance:none;border:1px solid var(--b);background:rgba(255,255,255,.06);color:var(--t);
+      border-radius:999px;padding:9px 12px;cursor:pointer;font-size:13px;
+      transition:transform .12s ease,background .16s ease,border-color .16s ease;
+    }
+    .btn:hover{background:rgba(255,255,255,.10);transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    .btn[aria-pressed="true"]{border-color:rgba(96,165,250,.55);box-shadow:0 0 0 3px rgba(96,165,250,.14)}
+    .pill{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--b);border-radius:999px;background:rgba(0,0,0,.18);backdrop-filter:blur(8px)}
+    .tag{font-family:var(--mono);font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);white-space:nowrap}
+    .tag.blue{border-color:rgba(96,165,250,.42);background:rgba(96,165,250,.12)}
+    .tag.teal{border-color:rgba(45,212,191,.42);background:rgba(45,212,191,.12)}
+    .tag.violet{border-color:rgba(167,139,250,.42);background:rgba(167,139,250,.12)}
+    .tag.ok{border-color:rgba(74,222,128,.42);background:rgba(74,222,128,.12)}
+    .tag.warn{border-color:rgba(251,191,36,.46);background:rgba(251,191,36,.12)}
+
+    .grid{display:grid;grid-template-columns:1.3fr .7fr;gap:16px;margin-top:16px;align-items:start}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+    .card{
+      border:1px solid var(--b);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.03));
+      box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden;
+    }
+    .cardH{padding:14px 16px 0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .cardH h2{margin:0;font-size:14px}
+    .cardH p{margin:0;color:var(--m2);font-size:12.5px}
+    .cardB{padding:14px 16px 16px}
+    .diagram{
+      position:relative;height:470px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.10);
+      background:
+        linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.02)),
+        radial-gradient(700px 420px at 20% 45%, rgba(96,165,250,.10), transparent 55%),
+        radial-gradient(700px 420px at 80% 45%, rgba(45,212,191,.08), transparent 55%);
+    }
+    .diagram:before{
+      content:"";position:absolute;inset:0;pointer-events:none;opacity:.33;
+      background-image:linear-gradient(to right, rgba(148,163,184,.12) 1px, transparent 1px),
+                       linear-gradient(to bottom, rgba(148,163,184,.12) 1px, transparent 1px);
+      background-size:42px 42px;
+      mask-image:radial-gradient(closest-side, rgba(0,0,0,.95), rgba(0,0,0,.35));
+    }
+    svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+    .edge{fill:none;stroke:rgba(148,163,184,.55);stroke-width:2.2;stroke-linecap:round;stroke-dasharray:6 8;opacity:.9}
+    .edge.strong{stroke-dasharray:0;stroke:rgba(148,163,184,.80)}
+    .edge.dim{opacity:.12}
+    .label{font-family:var(--mono);font-size:11px;fill:rgba(255,255,255,.76);paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:4px}
+    .label.dim{opacity:.18}
+    .dot{opacity:0;transition:opacity .2s ease}
+    .dot.on{opacity:1}
+
+    .node{
+      position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);
+      width:min(250px,28vw);min-width:200px;
+      padding:12px 12px 11px;border-radius:16px;border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.22);backdrop-filter:blur(10px);box-shadow:0 16px 40px rgba(0,0,0,.40);
+      cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;
+    }
+    .node:hover{transform:translate(-50%,-50%) scale(1.01);border-color:rgba(96,165,250,.40);box-shadow:0 18px 52px rgba(0,0,0,.55)}
+    .node[aria-selected="true"]{border-color:rgba(96,165,250,.65);box-shadow:0 0 0 4px rgba(96,165,250,.12),0 22px 62px rgba(0,0,0,.55)}
+    .ntop{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}
+    .nt{margin:0;font-size:13.6px;letter-spacing:.2px;line-height:1.2}
+    .nm{font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.78)}
+    .nb{margin:0;color:var(--m);font-size:12.5px;line-height:1.35}
+    code{font-family:var(--mono);font-size:12px}
+
+    .panel{border:1px solid var(--b);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));
+      box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden}
+    .pH{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .pH h3{margin:0;font-size:14px}
+    .hint{color:var(--m2);font-size:12px}
+    .pB{padding:14px 16px 16px}
+    .kv{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;align-items:start;margin-top:8px;font-size:12.5px;line-height:1.35}
+    .k{color:var(--m2);font-family:var(--mono);font-size:12px}
+    .list{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+    .li{border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.04);padding:10px 11px}
+    .li strong{font-size:12.5px}
+    .li p{margin:6px 0 0;color:var(--m);font-size:12.2px;line-height:1.35}
+    .sep{height:1px;background:rgba(255,255,255,.10);margin:14px 0}
+    .foot{margin-top:16px;color:rgba(255,255,255,.55);font-size:12px;line-height:1.45}
+    .kbd{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.24)}
+    a{color:rgba(96,165,250,.95);text-decoration:none}a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>demo-netflix-oss-architecture</h1>
+      <p class="sub">
+        Strict runtime flow: <code>Client → Gateway → user-bff → (mTLS) → mtls-middleware → core-backend</code>.
+        Only <code>cloud-gateway:8080</code> is public. Click nodes for details; reload replays animation.
+      </p>
+    </div>
+    <div class="row">
+      <div class="pill" role="group" aria-label="View">
+        <span class="tag blue">View</span>
+        <button class="btn" id="btnRuntime" aria-pressed="true" type="button">Runtime</button>
+        <button class="btn" id="btnBootstrap" aria-pressed="false" type="button">Bootstrap</button>
+      </div>
+      <div class="pill" role="group" aria-label="API type">
+        <span class="tag violet">API</span>
+        <button class="btn" id="btnRest" aria-pressed="true" type="button">REST</button>
+        <button class="btn" id="btnSoap" aria-pressed="false" type="button">SOAP</button>
+        <button class="btn" id="btnGraphql" aria-pressed="false" type="button">GraphQL</button>
+      </div>
+      <button class="btn" id="btnReplay" type="button">Replay</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <div class="cardH">
+        <div>
+          <h2>Architecture Map</h2>
+          <p>Animated runtime + control plane. All services run on separate EC2 (Ubuntu 22.04, t3.medium).</p>
+        </div>
+        <div class="row">
+          <span class="tag blue">public:8080</span>
+          <span class="tag teal">mTLS</span>
+          <span class="tag violet">Config</span>
+          <span class="tag ok">Eureka</span>
+        </div>
+      </div>
+      <div class="cardB">
+        <div class="diagram" id="diagram">
+          <svg id="svg" viewBox="0 0 1000 470" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(148,163,184,0.75)"></path>
+              </marker>
+              <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(96,165,250,0.92)"></path>
+              </marker>
+              <marker id="arrowTeal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(45,212,191,0.92)"></path>
+              </marker>
+            </defs>
+          </svg>
+
+          <div class="node" id="n-client" role="button" tabindex="0" aria-selected="false" style="--x:10%;--y:60%">
+            <div class="ntop">
+              <div><p class="nt">Client</p><div class="nm">Internet</div></div>
+              <span class="tag blue">HTTP</span>
+            </div>
+            <p class="nb">Calls only <code>cloud-gateway:8080</code>.</p>
+          </div>
+
+          <div class="node" id="n-gateway" role="button" tabindex="0" aria-selected="false" style="--x:27%;--y:60%">
+            <div class="ntop">
+              <div><p class="nt">cloud-gateway</p><div class="nm">EC2: gateway-ec2</div></div>
+              <span class="tag blue">:8080</span>
+            </div>
+            <p class="nb">Routes <code>/api/**</code>, <code>/ws/**</code>, <code>/graphql</code> → <code>user-bff</code>.</p>
+          </div>
+
+          <div class="node" id="n-bff" role="button" tabindex="0" aria-selected="false" style="--x:44%;--y:60%">
+            <div class="ntop">
+              <div><p class="nt">user-bff</p><div class="nm">EC2: userbff-ec2</div></div>
+              <span class="tag blue">:8081</span>
+            </div>
+            <p class="nb">Exposes REST/SOAP/GraphQL and calls middleware via mTLS only.</p>
+          </div>
+
+          <div class="node" id="n-mw" role="button" tabindex="0" aria-selected="false" style="--x:63%;--y:60%">
+            <div class="ntop">
+              <div><p class="nt">mtls-middleware</p><div class="nm">EC2: middleware-ec2</div></div>
+              <span class="tag teal">:8443</span>
+            </div>
+            <p class="nb">HTTPS + client-auth required. Logs client cert Subject+Serial and enriches response.</p>
+          </div>
+
+          <div class="node" id="n-backend" role="button" tabindex="0" aria-selected="false" style="--x:82%;--y:60%">
+            <div class="ntop">
+              <div><p class="nt">core-backend</p><div class="nm">EC2: backend-ec2</div></div>
+              <span class="tag blue">:8082</span>
+            </div>
+            <p class="nb">Processes payload. Echoes <code>X-Client-Subject</code>/<code>X-Client-Serial</code>.</p>
+          </div>
+
+          <div class="node" id="n-config" role="button" tabindex="0" aria-selected="false" style="--x:36%;--y:20%">
+            <div class="ntop">
+              <div><p class="nt">config-server</p><div class="nm">EC2: config-ec2</div></div>
+              <span class="tag violet">:8888</span>
+            </div>
+            <p class="nb">Serves <code>/config-repo</code> (native file). Generates mTLS certs and publishes to S3.</p>
+          </div>
+
+          <div class="node" id="n-eureka" role="button" tabindex="0" aria-selected="false" style="--x:58%;--y:20%">
+            <div class="ntop">
+              <div><p class="nt">eureka-server</p><div class="nm">EC2: eureka-ec2</div></div>
+              <span class="tag ok">:8761</span>
+            </div>
+            <p class="nb">Service discovery registry. Gateway routes using <code>lb://user-bff</code>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="pH">
+        <div>
+          <h3 id="panelTitle">Quick technical summary</h3>
+          <div class="hint">Keys: <span class="kbd">R</span> replay • <span class="kbd">B</span> view • <span class="kbd">1/2/3</span> API</div>
+        </div>
+        <span class="tag blue" id="panelBadge">runtime</span>
+      </div>
+      <div class="pB" id="panel"></div>
+    </aside>
+  </div>
+
+  <div class="foot">
+    Single-file diagram for onboarding. See repo docs for commands: <a href="./README.md">README.md</a>.
+  </div>
+</div>
+
+<script>
+(() => {
+  const diagram = document.getElementById("diagram");
+  const svg = document.getElementById("svg");
+  const panel = document.getElementById("panel");
+  const panelTitle = document.getElementById("panelTitle");
+  const panelBadge = document.getElementById("panelBadge");
+  const btnRuntime = document.getElementById("btnRuntime");
+  const btnBootstrap = document.getElementById("btnBootstrap");
+  const btnRest = document.getElementById("btnRest");
+  const btnSoap = document.getElementById("btnSoap");
+  const btnGraphql = document.getElementById("btnGraphql");
+  const btnReplay = document.getElementById("btnReplay");
+
+  const nodes = {
+    client: document.getElementById("n-client"),
+    gateway: document.getElementById("n-gateway"),
+    bff: document.getElementById("n-bff"),
+    mw: document.getElementById("n-mw"),
+    backend: document.getElementById("n-backend"),
+    config: document.getElementById("n-config"),
+    eureka: document.getElementById("n-eureka"),
+  };
+
+  const details = {
+    client: {
+      title: "Client",
+      badge: "external",
+      kv: [
+        ["Entry", "<code>cloud-gateway:8080</code> (only public SG ingress)"],
+        ["Expect", "Responses include backend output + mTLS proof fields."],
+      ],
+      list: [
+        ["REST", "<code>POST /api/rest/echo</code> via gateway"],
+        ["SOAP", "<code>POST /ws</code> via gateway"],
+        ["GraphQL", "<code>POST /graphql</code> via gateway"],
+      ],
+    },
+    gateway: {
+      title: "cloud-gateway",
+      badge: "public:8080",
+      kv: [
+        ["Port", "<code>8080</code>"],
+        ["Routes", "<code>/api/**</code>, <code>/ws/**</code>, <code>/graphql</code> → <code>lb://user-bff</code>"],
+        ["Config", "<code>config-repo/cloud-gateway-aws.yml</code>"],
+        ["Discovery", "Eureka client"],
+      ],
+      list: [
+        ["Why", "Single controlled ingress; internal ports stay private."],
+        ["Ops", "Systemd unit <code>cloud-gateway.service</code>, jar <code>/opt/cloud-gateway/app.jar</code>."],
+      ],
+    },
+    bff: {
+      title: "user-bff",
+      badge: "bff:8081",
+      kv: [
+        ["REST", "<code>POST /api/rest/echo</code>"],
+        ["SOAP", "<code>/ws</code> (Spring-WS, WSDL from XSD)"],
+        ["GraphQL", "<code>/graphql</code> (Query <code>process</code>)"],
+        ["mTLS", "Outbound HTTPS with client cert → middleware only"],
+      ],
+      list: [
+        ["mTLS files", "AWS: <code>/opt/user-bff/certs/*</code> (client keystore + truststore + root CA)."],
+        ["Config keys", "<code>middleware.base-url</code>, <code>mtls.client.*</code> (see <code>config-repo/user-bff-aws.yml</code>)."],
+      ],
+    },
+    mw: {
+      title: "mtls-middleware",
+      badge: "mtls:8443",
+      kv: [
+        ["HTTPS", "<code>:8443</code> with <code>server.ssl.client-auth=need</code>"],
+        ["Endpoint", "<code>POST /middleware/process</code>"],
+        ["Logs", "Client cert Subject DN + Serial"],
+        ["Forwards", "Backend <code>POST /backend/process</code> with <code>X-Client-Subject</code>/<code>X-Client-Serial</code>"],
+      ],
+      list: [
+        ["Server TLS", "Keystore: <code>/opt/mtls-middleware/certs/middleware-server-keystore.p12</code>"],
+        ["Truststore", "<code>/opt/mtls-middleware/certs/middleware-server-truststore.p12</code> (root CA)"],
+      ],
+    },
+    backend: {
+      title: "core-backend",
+      badge: "backend:8082",
+      kv: [
+        ["Endpoint", "<code>POST /backend/process</code>"],
+        ["Returns", "Original payload + computed output + timestamp + instance info"],
+        ["Proof", "Echoes <code>X-Client-Subject</code>/<code>X-Client-Serial</code> back"],
+      ],
+      list: [
+        ["Purpose", "Final business processing + proof-of-chain output for sanity tests."],
+      ],
+    },
+    config: {
+      title: "config-server",
+      badge: "config:8888",
+      kv: [
+        ["Backend", "Native file repo (AWS): <code>/opt/config-repo</code>"],
+        ["Serves", "<code>{app}-{profile}.yml</code> for <code>aws</code>/<code>local</code>"],
+        ["Certs", "Generates mTLS artifacts and publishes to private S3 bucket"],
+      ],
+      list: [
+        ["Why", "Central config without external Git config repo."],
+        ["Eureka", "Registers after eureka-ec2 is up (auto-discovery by EC2 tag + restart)."],
+      ],
+    },
+    eureka: {
+      title: "eureka-server",
+      badge: "eureka:8761",
+      kv: [
+        ["Registry", "All services register here"],
+        ["Gateway", "Routes using <code>lb://user-bff</code>"],
+        ["Config", "<code>config-repo/eureka-server-aws.yml</code>"],
+      ],
+      list: [
+        ["Tip", "Eureka UI is internal-only by default SG (SSH tunnel if needed)."],
+      ],
+    },
+  };
+
+  const state = { view: "runtime", api: "rest", selected: null, raf: 0, start: 0, playing: false };
+
+  const EDGE = {
+    runtime: [
+      { id:"c->g", from:"client", to:"gateway", label:"HTTP :8080 (public)", strong:true, stroke:"rgba(96,165,250,.92)", marker:"arrowBlue" },
+      { id:"g->b", from:"gateway", to:"bff", label:"route (/api,/ws,/graphql)", strong:true, stroke:"rgba(96,165,250,.90)", marker:"arrowBlue" },
+      { id:"b->m", from:"bff", to:"mw", label:"mTLS HTTPS :8443", strong:true, stroke:"rgba(45,212,191,.92)", marker:"arrowTeal" },
+      { id:"m->k", from:"mw", to:"backend", label:"HTTP :8082 + X-Client-*", strong:true, stroke:"rgba(96,165,250,.86)", marker:"arrowBlue" },
+    ],
+    bootstrap: [
+      { id:"gw<-cfg", from:"gateway", to:"config", label:"config pull", strong:false },
+      { id:"bff<-cfg", from:"bff", to:"config", label:"config pull", strong:false },
+      { id:"mw<-cfg", from:"mw", to:"config", label:"config pull", strong:false },
+      { id:"be<-cfg", from:"backend", to:"config", label:"config pull", strong:false },
+      { id:"eu<-cfg", from:"eureka", to:"config", label:"config pull", strong:false },
+      { id:"gw->eu", from:"gateway", to:"eureka", label:"register", strong:false },
+      { id:"bff->eu", from:"bff", to:"eureka", label:"register", strong:false },
+      { id:"mw->eu", from:"mw", to:"eureka", label:"register", strong:false },
+      { id:"be->eu", from:"backend", to:"eureka", label:"register", strong:false },
+      { id:"cfg->eu", from:"config", to:"eureka", label:"register (after restart)", strong:false },
+    ],
+  };
+
+  const rendered = new Map();
+
+  const setPressed = (btn, on) => btn.setAttribute("aria-pressed", on ? "true" : "false");
+  const esc = (s) => String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\"","&quot;").replaceAll("'","&#039;");
+
+  function renderPanelDefault(){
+    panelTitle.textContent = state.view === "runtime" ? "Quick technical summary" : "Bootstrap + control plane";
+    panelBadge.textContent = state.view;
+    panel.innerHTML = state.view === "runtime" ? `
+      <div class="kv">
+        <div class="k">Flow</div><div><code>Client → Gateway → user-bff → (mTLS) → middleware → backend</code></div>
+        <div class="k">Public</div><div>Only <code>cloud-gateway:8080</code> is internet-exposed.</div>
+        <div class="k">mTLS proof</div><div>Middleware returns Subject+Serial; backend echoes <code>X-Client-*</code>.</div>
+        <div class="k">Sanity</div><div>Terraform runs local script and generates <code>reports/sanity-report.*</code>.</div>
+      </div>
+      <div class="sep"></div>
+      <ul class="list">
+        <li class="li"><strong>REST</strong><p><code>POST /api/rest/echo</code> via gateway.</p></li>
+        <li class="li"><strong>SOAP</strong><p><code>POST /ws</code> (WSDL from XSD) via gateway.</p></li>
+        <li class="li"><strong>GraphQL</strong><p><code>POST /graphql</code> query <code>process</code> via gateway.</p></li>
+      </ul>
+    ` : `
+      <div class="kv">
+        <div class="k">Order</div><div><code>config → eureka → backend → middleware → user-bff → gateway</code></div>
+        <div class="k">Config</div><div>All services pull from <code>config-server</code> (native file backend).</div>
+        <div class="k">Discovery</div><div>All services register with <code>eureka-server</code>.</div>
+        <div class="k">Build</div><div>Each VM clones repo and runs Maven for its service only.</div>
+      </div>
+      <div class="sep"></div>
+      <ul class="list">
+        <li class="li"><strong>mTLS distribution</strong><p>Certs generated on <code>config-ec2</code> and synced via a private S3 bucket.</p></li>
+        <li class="li"><strong>Systemd</strong><p>Each service installed as <code>&lt;service&gt;.service</code>, logs in <code>/var/log/&lt;service&gt;/app.log</code>.</p></li>
+      </ul>
+    `;
+  }
+
+  function selectNode(key){
+    state.selected = key;
+    Object.entries(nodes).forEach(([k, el]) => el.setAttribute("aria-selected", k === key ? "true" : "false"));
+    const d = details[key];
+    panelTitle.textContent = d.title;
+    panelBadge.textContent = d.badge;
+    const kv = d.kv.map(([k,v]) => `<div class="k">${esc(k)}</div><div>${v}</div>`).join("");
+    const li = d.list.map(([t,p]) => `<li class="li"><strong>${esc(t)}</strong><p>${p}</p></li>`).join("");
+    panel.innerHTML = `<div class="kv">${kv}</div><div class="sep"></div><ul class="list">${li}</ul>`;
+  }
+
+  function centerOf(el){
+    const r = el.getBoundingClientRect();
+    const c = diagram.getBoundingClientRect();
+    return { x: (r.left + r.width/2) - c.left, y: (r.top + r.height/2) - c.top };
+  }
+  function toVB(p){
+    const c = diagram.getBoundingClientRect();
+    return { x: (p.x/c.width)*1000, y: (p.y/c.height)*470 };
+  }
+  function curve(a,b,t=0.42){
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const c1={x:a.x+dx*t,y:a.y}, c2={x:b.x-dx*t,y:b.y};
+    if (Math.abs(dx) < 140){ c1.y=a.y+dy*0.18; c2.y=b.y-dy*0.18; }
+    return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)} ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+  }
+
+  function ensureEdge(e){
+    if (rendered.has(e.id)) return rendered.get(e.id);
+    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+    const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("class", "edge" + (e.strong ? " strong" : ""));
+    p.setAttribute("marker-end", `url(#${e.marker || "arrow"})`);
+    if (e.stroke) p.setAttribute("stroke", e.stroke);
+    g.appendChild(p);
+    const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("class","label");
+    t.textContent = e.label || "";
+    g.appendChild(t);
+    const d = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    d.setAttribute("class","dot");
+    d.setAttribute("r", e.strong ? "4.1" : "3.6");
+    d.setAttribute("fill", e.stroke || "rgba(96,165,250,.92)");
+    g.appendChild(d);
+    svg.appendChild(g);
+    const out = { g, path:p, label:t, dot:d, edge:e };
+    rendered.set(e.id, out);
+    return out;
+  }
+
+  function layout(){
+    const list = [...EDGE.runtime, ...EDGE.bootstrap];
+    list.forEach(ensureEdge);
+    list.forEach(e => {
+      const r = rendered.get(e.id);
+      const a = toVB(centerOf(nodes[e.from]));
+      const b = toVB(centerOf(nodes[e.to]));
+      const d = curve(a,b, e.strong ? 0.42 : 0.30);
+      r.path.setAttribute("d", d);
+      const mid = r.path.getPointAtLength(r.path.getTotalLength() * 0.52);
+      r.label.setAttribute("x", String(mid.x));
+      r.label.setAttribute("y", String(mid.y - 8));
+    });
+  }
+
+  function showView(view){
+    state.view = view;
+    setPressed(btnRuntime, view === "runtime");
+    setPressed(btnBootstrap, view === "bootstrap");
+    panelBadge.textContent = view;
+    const active = view === "runtime" ? new Set(EDGE.runtime.map(e => e.id)) : new Set(EDGE.bootstrap.map(e => e.id));
+    [...EDGE.runtime, ...EDGE.bootstrap].forEach(e => {
+      const r = rendered.get(e.id);
+      const on = active.has(e.id);
+      r.path.classList.toggle("dim", !on);
+      r.label.classList.toggle("dim", !on);
+      r.dot.classList.toggle("on", false);
+    });
+    if (!state.selected) renderPanelDefault();
+    replay();
+  }
+
+  function setApi(api){
+    state.api = api;
+    setPressed(btnRest, api === "rest");
+    setPressed(btnSoap, api === "soap");
+    setPressed(btnGraphql, api === "graphql");
+    replay();
+  }
+
+  function stop(){
+    state.playing = false;
+    if (state.raf) cancelAnimationFrame(state.raf);
+    state.raf = 0;
+    [...EDGE.runtime, ...EDGE.bootstrap].forEach(e => rendered.get(e.id).dot.classList.toggle("on", false));
+  }
+
+  function hash01(s){
+    let h = 2166136261;
+    for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return ((h>>>0)%1000)/1000;
+  }
+
+  function replay(){
+    stop();
+    state.playing = true;
+    state.start = performance.now();
+
+    const activeEdges = state.view === "runtime" ? EDGE.runtime : EDGE.bootstrap;
+    activeEdges.forEach(e => rendered.get(e.id).dot.classList.toggle("on", true));
+    const baseSpeed = state.view === "runtime" ? 0.85 : 0.65;
+    const apiFactor = state.api === "rest" ? 1.00 : (state.api === "soap" ? 0.92 : 1.08);
+
+    const tick = (ts) => {
+      if (!state.playing) return;
+      const t = (ts - state.start) / 1000;
+      for (const e of activeEdges){
+        const r = rendered.get(e.id);
+        const len = r.path.getTotalLength();
+        const phase = state.view === "runtime"
+          ? (t * baseSpeed * apiFactor + hash01(e.id) * 0.35)
+          : (t * baseSpeed * 0.75 + hash01(e.id) * 0.75);
+        const p = r.path.getPointAtLength((phase % 1) * len);
+        r.dot.setAttribute("cx", String(p.x));
+        r.dot.setAttribute("cy", String(p.y));
+      }
+      state.raf = requestAnimationFrame(tick);
+    };
+    state.raf = requestAnimationFrame(tick);
+  }
+
+  function wire(){
+    Object.entries(nodes).forEach(([k, el]) => {
+      el.addEventListener("click", () => selectNode(k));
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); selectNode(k); }
+      });
+    });
+    btnRuntime.addEventListener("click", () => { state.selected = null; showView("runtime"); });
+    btnBootstrap.addEventListener("click", () => { state.selected = null; showView("bootstrap"); });
+    btnRest.addEventListener("click", () => setApi("rest"));
+    btnSoap.addEventListener("click", () => setApi("soap"));
+    btnGraphql.addEventListener("click", () => setApi("graphql"));
+    btnReplay.addEventListener("click", () => replay());
+
+    window.addEventListener("keydown", (ev) => {
+      if (ev.key === "r" || ev.key === "R") replay();
+      if (ev.key === "b" || ev.key === "B") { state.selected = null; showView(state.view === "runtime" ? "bootstrap" : "runtime"); }
+      if (ev.key === "1") setApi("rest");
+      if (ev.key === "2") setApi("soap");
+      if (ev.key === "3") setApi("graphql");
+      if (ev.key === "Escape") { state.selected = null; Object.values(nodes).forEach(el => el.setAttribute("aria-selected","false")); renderPanelDefault(); }
+    });
+
+    let resizeTimer = 0;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { layout(); }, 100);
+    });
+  }
+
+  function init(){
+    renderPanelDefault();
+    layout();
+    wire();
+    showView("runtime");
+    replay();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

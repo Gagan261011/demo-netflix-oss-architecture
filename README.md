@@ -19,6 +19,7 @@ Public entrypoint (only): **Cloud Gateway :8080** → `user-bff` → (**mTLS**) 
 /scripts/provision
 /scripts/sanity
 /reports
+architecture.html
 ```
 
 ## Architecture (Ports)
@@ -139,6 +140,10 @@ After `terraform apply` completes, sanity reports are written locally:
 
 - `reports/sanity-report.json`
 - `reports/sanity-report.html`
+
+## Architecture Diagram
+
+Open `architecture.html` in a browser for an animated, interactive end-to-end flow (runtime + bootstrap) with per-service technical details.
 
 ## Notes (Security / Demo)
 
